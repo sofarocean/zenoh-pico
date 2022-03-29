@@ -355,6 +355,7 @@ int _zn_listen_udp_multicast(void *arg, const clock_t tout, const z_str_t iface)
     {
         struct net_if_mcast_addr *mcast = NULL;
         mcast = net_if_ipv4_maddr_add(ifa, &((struct sockaddr_in *)raddr->ai_addr)->sin_addr);
+        // TODO: Do the same address lookup as in the IPV6 case below
         if (!mcast)
             goto _ZN_LISTEN_UDP_MULTICAST_ERROR_2;
         net_if_ipv4_maddr_join(mcast);
@@ -362,9 +363,16 @@ int _zn_listen_udp_multicast(void *arg, const clock_t tout, const z_str_t iface)
     else if (raddr->ai_family == AF_INET6)
     {
         struct net_if_mcast_addr *mcast = NULL;
-        mcast = net_if_ipv6_maddr_add(ifa, &((struct sockaddr_in6 *)raddr->ai_addr)->sin6_addr);
+        // We don't want to fail if the address already exists in the multicast group.
+        mcast = net_if_ipv6_maddr_lookup(&((struct sockaddr_in6 *)raddr->ai_addr)->sin6_addr, &ifa);
         if (!mcast)
-            goto _ZN_LISTEN_UDP_MULTICAST_ERROR_2;
+        {
+            mcast = net_if_ipv6_maddr_add(ifa, &((struct sockaddr_in6 *)raddr->ai_addr)->sin6_addr);
+            if (!mcast)
+            {
+                goto _ZN_LISTEN_UDP_MULTICAST_ERROR_2;
+            }
+        }
         net_if_ipv6_maddr_join(mcast);
     }
     else
